@@ -1,84 +1,70 @@
-import code
-
 import requests
 import hashlib
 import base64
-import math
 
 class MirRestApi:
-    def __init__(self, usrname, password, ip="192.168.12.20"):
+    def __init__(self, username, password, ip="192.168.12.20"):
         self.url = f"http://{ip}/api/v2.0.0"
-        print(usrname)
-        print(password)
         self.header = {
             'Content-Type': 'application/json',
-
-            'Authorization': self.generate_auth_head(usrname, password)
+            'Authorization': self.generate_auth_head(username, password)
         }
 
-    def generate_auth_head(self, usrname, password):
+    def generate_auth_head(self, username, password):
         hashed_pass = hashlib.sha256(password.encode('utf-8')).hexdigest()
-        auth_str = f"{usrname}:{hashed_pass}"
+        auth_str = f"{username}:{hashed_pass}"
         encoded = base64.b64encode(auth_str.encode("ascii")).decode("ascii")
         return f"Basic {encoded}"
 
-    def status_get(self):
+    def handle_request(self, method, endpoint, data=None):
+        url = f"{self.url}/{endpoint.lstrip('/')}"
         try:
-            response = requests.get(f"{self.url}/status", headers=self.header, timeout=5)
-            return response.status_code, response.json()
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=self.header,
+                json=data,
+                timeout=5
+            )
+            
+            if "image" in response.headers.get("Content-Type", ""):
+                return response.status_code, response.content
+                
+            if "application/json" in response.headers.get("Content-Type", ""):
+                return response.status_code, response.json()
+                
+            return response.status_code, {"text": response.text}
         except Exception as e:
             return 500, {"error": str(e)}
+
+    def status_get(self):
+        return self.handle_request("GET", "status")
 
     def set_state(self, state_id):
-        # 3 = Ready, 4 = Pause
-        try:
-            response = requests.put(f"{self.url}/status", 
-                                    json={"state_id": state_id}, 
-                                    headers=self.header)
-            return response.status_code, response.json()
-        except Exception as e:
-            return 500, {"error": str(e)}
-#add move method
-def move_relative(self, distance_m=0.0, rotation_deg=0.0):
-    """
-    פונקציה אחת לכל סוגי התנועה היחסית:
-    :param distance_m: מרחק במטרים (חיובי לקדימה, שלילי לאחורה)
-    :param rotation_deg: זווית סיבוב (חיובי לשמאל, שלילי לימין)
-    """
-    try:
-        # 1. קבלת המיקום הנוכחי מהרובוט
-        code, status_data = self.status_get()
+        return self.handle_request("PUT", "status", {"state_id": state_id})
+
+    def missions_post(self, name, group_id):
+        payload = {"name": name, "group_id": group_id}
+        return self.handle_request("POST", "missions", payload)
+
+    def mission_actions_post(self, mission_id, action_type, parameters):
+        payload = {"action_type": action_type, "parameters": parameters, "priority": 1}
+        return self.handle_request("POST", f"missions/{mission_id}/actions", payload)
+
+    def mission_queue_post(self, mission_id):
+        return self.handle_request("POST", "mission_queue", {"mission_id": mission_id})
+
+    def maps_get(self):
+        return self.handle_request("GET", "maps")
+
+    def map_image_get(self, map_guid):
+        code, data = self.handle_request("GET", f"maps/{map_guid}")
         if code != 200:
-            return code, {"error": "Could not get robot status"}
+            return code, data
+    
+        map_b64 = data.get("map")
+        if not map_b64:
+            return 404, {"error": "map field not found in robot response"}
 
-        curr_x = status_data['position']['x']
-        curr_y = status_data['position']['y']
-        curr_ori = status_data['position']['orientation'] # בדרגות
-
-        # 2. חישוב היעד החדש
-        # המרה של הזווית הנוכחית לרדיאנים לצורך חישוב סינוס וקוסינוס
-        rad = math.radians(curr_ori)
-        
-        # נוסחת התנועה במישור:
-        new_x = curr_x + distance_m * math.cos(rad)
-        new_y = curr_y + distance_m * math.sin(rad)
-        new_ori = curr_ori + rotation_deg
-
-        # 3. הכנת גוף הבקשה (Payload) לפי ה-Schema בעמ' 368
-        # שים לב: אתה חייב להשתמש ב-Mission ID שמוגדר עם Dynamic Parameters ברובוט
-        payload = {
-            "mission_id": "YOUR_MOVE_MISSION_GUID", 
-            "parameters": [
-                {"input_name": "x", "value": new_x},
-                {"input_name": "y", "value": new_y},
-                {"input_name": "orientation", "value": new_ori}
-            ]
-        }
-
-        # 4. שליחה לתור המשימות
-        url = f"{self.url}/mission_queue"
-        response = requests.post(url, json=payload, headers=self.header, timeout=5)
-        return response.status_code, response.json()
-
-    except Exception as e:
-        return 500, {"error": str(e)}
+        image_bytes = base64.b64decode(map_b64)
+        return 200, image_bytes
