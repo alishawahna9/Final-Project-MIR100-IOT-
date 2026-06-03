@@ -54,6 +54,19 @@ class MirRestApi:
     def mission_queue_post(self, mission_id):
         return self.handle_request("POST", "mission_queue", {"mission_id": mission_id})
 
+    def mission_groups_get(self):
+        code, data = self.handle_request("GET", "mission_groups")
+        if code != 200:
+            return code, data
+        return code, [{"guid": g["guid"], "name": g["name"]} for g in data]
+
+    def position_get(self):
+        code, data = self.handle_request("GET", "status")
+        if code != 200:
+            return code, data
+        pos = data.get("position", {})
+        return code, {"x": pos.get("x"), "y": pos.get("y")}
+
     def maps_get(self):
         return self.handle_request("GET", "maps")
 

@@ -135,6 +135,20 @@ def _move(x, y, orientation):
     mir.mission_queue_post(guid)
     return {"status": "ok"}
 
+@app.get("/robot/mission-groups")
+def get_mission_groups():
+    code, data = mir.mission_groups_get()
+    if code == 200:
+        return data
+    raise HTTPException(status_code=code, detail=data)
+
+@app.get("/robot/position")
+def get_position():
+    code, data = mir.position_get()
+    if code == 200:
+        return data
+    raise HTTPException(status_code=code, detail=data)
+
 @app.get("/robot/maps")
 def list_maps():
     code, data = mir.maps_get()

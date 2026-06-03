@@ -54,6 +54,21 @@ Key constants:
 
 Map images are stored base64-encoded in the `"map"` field of the map object (not `"base_map"`); `map_image_get` decodes them to raw PNG bytes.
 
+### MiR Robot — Valid Action Types
+The robot only understands these exact `action_type` string values (used in `mission_actions_post`):
+
+```
+prompt_user, move, wait_for_plc_register, connect_bluetooth, sound_stop,
+set_reset_plc, adjust_localization, switch_map, if, pause, docking,
+reduce_protective_fields, create_autolog, relative_move, pickup_cart,
+wait_for_fleet, place_cart, planner_settings, charging, set_io, return,
+check_pose, set_reset_io, set_plc_register, throw_error, wait, sound,
+break, move_to_position, disconnect_bluetooth, run_ur_program, light,
+try_catch, email, while, continue, wait_for_io, set_footprint, loop
+```
+
+Currently the codebase only uses `relative_move`. Any new movement or automation feature must use one of the names above — the robot will reject any other value.
+
 ### IoT Script (`iot.py`)
 Standalone script — not part of the server. Reads a JSON export of MQTT messages from a hardcoded path (`C:\Users\alish\Downloads\All connections (1).json`) and renders three matplotlib subplots (temperature, humidity, pressure). Topics: `braude/team1/temperature`, `braude/team1/temp`, `braude/team1/humidity`, `braude/team1/pressure`.
 
